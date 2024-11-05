@@ -3,6 +3,15 @@ import random
 from PIL import Image
 import pytesseract
 import re
+import tensorflow as tf
+
+model_path = "/workspaces/sofdes/SSD_VGG16_Mode.h5"
+try:
+    model = tf.keras.models.load_model(model_path)
+    model_loaded = True
+except Exception as e:
+    model_loaded = False
+    st.error(f"Error loading model: {e}")
 
 words = ["apple", "banana", "grape", "orange", "watermelon", "strawberry", "blueberry"]
 
@@ -14,6 +23,10 @@ if "selected_module" not in st.session_state:
     st.session_state.selected_module = None
 if "target_word" not in st.session_state:
     st.session_state.target_word = None
+if "score" not in st.session_state:
+    st.session_state.score = 0
+if "attempts" not in st.session_state:
+    st.session_state.attempts = 0
 
 def welcome_page():
     st.title("Welcome Learner!")
@@ -92,6 +105,9 @@ def spelling_page():
     uploaded_image = st.file_uploader("Upload an image of your spelling", type=["png", "jpg", "jpeg"])
 
     if uploaded_image is not None:
+        if model_loaded:
+            st.write("Model loaded successfully.")
+
         image = Image.open(uploaded_image)
         st.image(image, caption="Uploaded Image", use_column_width=True)
 
@@ -100,13 +116,27 @@ def spelling_page():
         cleaned_extracted_text = clean_text(extracted_text)
         cleaned_target_word = clean_text(st.session_state.target_word)
 
-        st.write("Extracted Text from Image:", extracted_text)
-        st.write("Cleaned Extracted Text:", cleaned_extracted_text)
+        st.write("Detected Text from Image:", cleaned_extracted_text)
+
+
+        st.session_state.attempts += 1
 
         if cleaned_extracted_text == cleaned_target_word:
-            st.success("Correct! You spelled the word correctly.")
+            st.session_state.score += 1 
+            st.session_state.page = "score"
         else:
             st.error("Incorrect spelling. Please try again.")
+
+def score_page():
+    st.title("Congratulations!")
+    st.write(
+        f"Congratulations! You scored {st.session_state.score} out of {st.session_state.attempts}!"
+    )
+    if st.button("Spell Again"):
+
+        st.session_state.target_word = random.choice(words)
+        st.session_state.page = "spelling"
+
 
 if st.session_state.page == "welcome":
     welcome_page()
@@ -114,3 +144,5 @@ elif st.session_state.page == "selection":
     selection_page()
 elif st.session_state.page == "spelling":
     spelling_page()
+elif st.session_state.page == "score":
+    score_page()
